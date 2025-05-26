@@ -1,0 +1,3 @@
+name: debt-management-infrastructure
+runtime: python
+description: Debt Management Backend Infrastructure using Docker-based Lambda functions 

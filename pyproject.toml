@@ -1,0 +1,23 @@
+[project]
+name = "debt-management-backend"
+version = "0.1.0"
+description = "Debt Management API Backend"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "boto3>=1.38.23",
+    "pydantic>=2.11.5",
+    "pydantic[email]>=2.11.5",
+    "email-validator>=2.1.0",
+    "pyjwt>=2.8.0",
+    "pulumi>=3.171.0",
+    "pulumi-aws>=6.81.0",
+    "pulumi-awsx>=2.21.1",
+    "pulumi-docker>=4.7.0",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "isort>=6.0.1",
+    "ruff>=0.11.11",
+]

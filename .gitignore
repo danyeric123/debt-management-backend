@@ -1,0 +1,129 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# OS-specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Logs and temporary files
+*.log
+logs/
+*.tmp
+*.temp
+*.bak
+*.orig
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+.envrc
+
+# Test files and temporary data
+tests/fixtures/*.json
+tests/fixtures/*.b64
+test_*.json
+test_*.b64
+payload.b64
+response.json
+*.test
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+htmlcov/
+.tox/
+.nox/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# AWS and deployment
+.aws/
+*.pem
+*.key
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# Pulumi
+infrastructure/Pulumi.*.yaml
+!infrastructure/Pulumi.yaml
+!infrastructure/Pulumi.dev.yaml
+infrastructure/image_tag.txt
+
+# Backup files
+backups/*.json
+!backups/.gitkeep
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# PEP 582
+__pypackages__/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/

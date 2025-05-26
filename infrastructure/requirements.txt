@@ -1,0 +1,4 @@
+pulumi>=3.171.0
+pulumi-aws>=6.81.0
+pulumi-awsx>=2.21.1
+pulumi-docker>=4.7.0 
