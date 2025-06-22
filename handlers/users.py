@@ -23,13 +23,14 @@ table = DebtManagementTable()
 
 
 @lambda_handler()
-@validate_json_body(required_fields=["username", "email", "full_name", "password"])
+@validate_json_body(required_fields=["username", "email", "full_name"])
 def create_user(event, context):
     """
     Create a new user in the database.
 
     Validates user data, hashes the password securely, and stores the user
     in DynamoDB. This endpoint does not require authentication.
+    Password is now optional to support OAuth users.
 
     Args:
         event: Lambda event object containing user data
@@ -39,6 +40,12 @@ def create_user(event, context):
         HTTP response with success message or validation errors
     """
     body = event["json_body"]
+
+    # Check if password is provided (traditional registration)
+    if "password" not in body or not body["password"]:
+        return validation_error_response(
+            "Password is required for traditional registration. Use Google OAuth for passwordless signup."
+        )
 
     try:
         # Create and validate user model
@@ -51,6 +58,7 @@ def create_user(event, context):
         # Create user with hashed password
         user_dict = user.model_dump()
         user_dict["password"] = hashed_password
+        user_dict["oauth_provider"] = "password"  # Mark as password-based user
         user_with_hashed_pw = UserBase(**user_dict)
 
         # Add timestamps
@@ -66,6 +74,7 @@ def create_user(event, context):
                 "username": user.username,
                 "email": user.email,
                 "full_name": user.full_name,
+                "oauth_provider": "password",
                 "created_at": user_with_hashed_pw.created_at.isoformat(),
             },
             message=f"User {user.username} created successfully",

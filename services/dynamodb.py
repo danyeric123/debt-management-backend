@@ -92,6 +92,80 @@ class DebtManagementTable:
             )
             raise
 
+    def get_user_by_google_id(self, google_id: str) -> UserBase | None:
+        """
+        Gets user data by Google OAuth ID using GSI or scan.
+
+        :param google_id: The Google OAuth ID to search for.
+        :return: The user if found, None otherwise.
+        """
+        try:
+            # Use scan since we don't have a GSI for google_id yet
+            # In production, consider adding a GSI for better performance
+            response = self.table.scan(
+                FilterExpression="google_id = :google_id",
+                ExpressionAttributeValues={":google_id": google_id},
+            )
+
+            items = response.get("Items", [])
+            if not items:
+                return None
+
+            # Return the first match (should be unique)
+            return UserBase.from_dynamodb_item(items[0])
+
+        except botocore.exceptions.ClientError as err:
+            logger.error(
+                "Couldn't get user by Google ID %s from table %s. Error: %s: %s",
+                google_id,
+                self.table.name,
+                err.response["Error"]["Code"],
+                err.response["Error"]["Message"],
+            )
+            raise
+
+    def get_user_by_email(self, email: str) -> UserBase | None:
+        """
+        Gets user data by email using scan.
+
+        :param email: The email address to search for.
+        :return: The user if found, None otherwise.
+        """
+        try:
+            # Use scan since we don't have a GSI for email yet
+            # In production, consider adding a GSI for better performance
+            response = self.table.scan(
+                FilterExpression="email = :email",
+                ExpressionAttributeValues={":email": email},
+            )
+
+            items = response.get("Items", [])
+            if not items:
+                return None
+
+            # Return the first match (should be unique)
+            return UserBase.from_dynamodb_item(items[0])
+
+        except botocore.exceptions.ClientError as err:
+            logger.error(
+                "Couldn't get user by email %s from table %s. Error: %s: %s",
+                email,
+                self.table.name,
+                err.response["Error"]["Code"],
+                err.response["Error"]["Message"],
+            )
+            raise
+
+    def update_user(self, user: UserBase) -> bool:
+        """
+        Updates an existing user in the table.
+
+        :param user: The user with updated information.
+        :return: True if successful, raises exception otherwise.
+        """
+        # Simply reuse the put_user method since DynamoDB's put_item replaces the item if it exists
+        return self.put_user(user)
+
     def put_debt(self, debt: DebtBase) -> bool:
         """
         Adds a debt item to the DynamoDB table.
@@ -115,7 +189,7 @@ class DebtManagementTable:
             )
             raise
 
-    def get_debt(self, username: str, debt_id: str) -> Optional[DebtBase]:
+    def get_debt(self, username: str, debt_id: str) -> DebtBase | None:
         """
         Gets a specific debt item from the table.
 

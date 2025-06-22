@@ -84,7 +84,7 @@ def create_response(
     }
 
     if body is not None:
-        if isinstance(body, (dict, list)):
+        if isinstance(body, (dict, list)) or hasattr(body, "model_dump"):
             response["body"] = json.dumps(body, cls=APIJSONEncoder)
         else:
             response["body"] = str(body)

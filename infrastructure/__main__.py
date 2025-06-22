@@ -118,6 +118,32 @@ secrets_policy = pulumi.Output.concat(
     )
 )
 
+# IAM policy for Parameter Store access
+parameter_store_policy = pulumi.Output.concat(
+    "arn:aws:ssm:",
+    current_region.name,
+    ":",
+    current.account_id,
+    ":parameter/debt-management/*",
+).apply(
+    lambda arn: json.dumps(
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "ssm:GetParameter",
+                        "ssm:GetParameters",
+                        "ssm:GetParametersByPath",
+                    ],
+                    "Resource": arn,
+                }
+            ],
+        }
+    )
+)
+
 # Environment variables for Lambda functions
 lambda_env_vars = {
     "TABLE_NAME": dynamodb_table.name,
@@ -133,6 +159,14 @@ lambda_functions = {
     "login": {
         "handler": "handlers.auth.login",
         "protected": False,  # No auth required for login
+    },
+    "google-auth-url": {
+        "handler": "handlers.auth.google_auth_url",
+        "protected": False,  # No auth required to get OAuth URL
+    },
+    "google-oauth-callback": {
+        "handler": "handlers.auth.google_oauth_callback",
+        "protected": False,  # No auth required for OAuth callback
     },
     "create-user": {
         "handler": "handlers.users.create_user",
@@ -172,7 +206,7 @@ for name, config in lambda_functions.items():
         handler=config["handler"],
         shared_image_uri=image_uri,
         environment_vars=lambda_env_vars,
-        additional_policies=[dynamodb_policy, secrets_policy],
+        additional_policies=[dynamodb_policy, secrets_policy, parameter_store_policy],
     )
 
 # Create the authorizer function
@@ -181,7 +215,7 @@ authorizer_function = DockerLambdaFunction(
     handler="authorizer.lambda_handler",
     shared_image_uri=image_uri,
     environment_vars=lambda_env_vars,
-    additional_policies=[dynamodb_policy, secrets_policy],
+    additional_policies=[dynamodb_policy, secrets_policy, parameter_store_policy],
 )
 
 # API Gateway HTTP API
@@ -239,6 +273,18 @@ stage = aws.apigatewayv2.Stage(
 routes = [
     {"method": "GET", "path": "/healthz", "function": "healthz", "protected": False},
     {"method": "POST", "path": "/login", "function": "login", "protected": False},
+    {
+        "method": "GET",
+        "path": "/auth/google/url",
+        "function": "google-auth-url",
+        "protected": False,
+    },
+    {
+        "method": "POST",
+        "path": "/auth/google/callback",
+        "function": "google-oauth-callback",
+        "protected": False,
+    },
     {"method": "POST", "path": "/users", "function": "create-user", "protected": False},
     {
         "method": "GET",
