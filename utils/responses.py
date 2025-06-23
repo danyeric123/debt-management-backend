@@ -25,6 +25,14 @@ class HTTPStatus(Enum):
     INTERNAL_SERVER_ERROR = 500
 
 
+# CORS headers for API responses
+cors_headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization",
+    "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+}
+
+
 class APIJSONEncoder(json.JSONEncoder):
     """
     Custom JSON encoder for API responses that handles:
@@ -67,13 +75,7 @@ def create_response(
     response_headers = {}
 
     if cors_enabled:
-        response_headers.update(
-            {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Headers": "Content-Type,Authorization",
-                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-            }
-        )
+        response_headers.update(cors_headers)
 
     if headers:
         response_headers.update(headers)

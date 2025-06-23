@@ -92,37 +92,89 @@ class DebtManagementTable:
             )
             raise
 
-    def get_user_by_google_id(self, google_id: str) -> UserBase | None:
+    def get_user_by_supabase_id(self, supabase_id: str) -> dict | None:
         """
-        Gets user data by Google OAuth ID using GSI or scan.
+        Gets user data by Supabase ID using the GSI.
 
-        :param google_id: The Google OAuth ID to search for.
-        :return: The user if found, None otherwise.
+        :param supabase_id: The Supabase auth user ID to search for.
+        :return: The user item as dict if found, None otherwise.
         """
         try:
-            # Use scan since we don't have a GSI for google_id yet
-            # In production, consider adding a GSI for better performance
-            response = self.table.scan(
-                FilterExpression="google_id = :google_id",
-                ExpressionAttributeValues={":google_id": google_id},
+            response = self.table.query(
+                IndexName="GSI1",
+                KeyConditionExpression="GSI1PK = :gsi1pk AND GSI1SK = :gsi1sk",
+                ExpressionAttributeValues={
+                    ":gsi1pk": supabase_id,
+                    ":gsi1sk": supabase_id,
+                },
             )
 
             items = response.get("Items", [])
             if not items:
                 return None
 
-            # Return the first match (should be unique)
-            return UserBase.from_dynamodb_item(items[0])
+            # Get the first match (should be unique)
+            user_item = items[0]
+
+            # Extract username from PK format "USER#{username}" and add it to the dict
+            pk = user_item.get("PK", "")
+            username = pk.replace("USER#", "") if pk.startswith("USER#") else ""
+            user_item["username"] = username
+
+            return user_item
 
         except botocore.exceptions.ClientError as err:
             logger.error(
-                "Couldn't get user by Google ID %s from table %s. Error: %s: %s",
-                google_id,
+                "Couldn't get user by Supabase ID %s from table %s. Error: %s: %s",
+                supabase_id,
                 self.table.name,
                 err.response["Error"]["Code"],
                 err.response["Error"]["Message"],
             )
             raise
+
+    def get_user_by_username(self, username: str) -> dict | None:
+        """
+        Gets user data by username.
+
+        :param username: The username to search for.
+        :return: The user item as dict if found, None otherwise.
+        """
+        try:
+            response = self.table.get_item(
+                Key={"PK": f"USER#{username}", "SK": "USER#INFO"}
+            )
+            item = response.get("Item")
+            if not item:
+                return None
+
+            # Extract username from PK format "USER#{username}" and add it to the dict
+            pk = item.get("PK", "")
+            extracted_username = (
+                pk.replace("USER#", "") if pk.startswith("USER#") else ""
+            )
+            item["username"] = extracted_username
+
+            return item
+
+        except botocore.exceptions.ClientError as err:
+            logger.error(
+                "Couldn't get user by username %s from table %s. Error: %s: %s",
+                username,
+                self.table.name,
+                err.response["Error"]["Code"],
+                err.response["Error"]["Message"],
+            )
+            raise
+
+    def create_user(self, user: UserBase) -> bool:
+        """
+        Creates a new user in the DynamoDB table.
+
+        :param user: The user to create.
+        :return: True if successful, raises exception otherwise.
+        """
+        return self.put_user(user)
 
     def get_user_by_email(self, email: str) -> UserBase | None:
         """
@@ -278,3 +330,7 @@ class DebtManagementTable:
         """
         # Simply reuse the put_debt method since DynamoDB's put_item replaces the item if it exists
         return self.put_debt(debt)
+
+
+# Global instance for easy access
+dynamodb = DebtManagementTable()

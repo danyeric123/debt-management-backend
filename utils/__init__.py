@@ -9,9 +9,9 @@ from .decorators import (extract_path_params, lambda_handler, require_auth,
                          validate_json_body)
 from .logging import (log_error, log_lambda_event, log_lambda_response,
                       setup_logger)
-from .responses import (HTTPStatus, error_response, not_found_response,
-                        success_response, validation_error_response)
-from .security import hash_password, verify_password
+from .responses import (HTTPStatus, cors_headers, error_response,
+                        not_found_response, success_response,
+                        validation_error_response)
 
 __all__ = [
     # Decorators
@@ -30,7 +30,5 @@ __all__ = [
     "error_response",
     "validation_error_response",
     "not_found_response",
-    # Security
-    "hash_password",
-    "verify_password",
+    "cors_headers",
 ]

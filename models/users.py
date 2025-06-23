@@ -13,11 +13,9 @@ class UserBase(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     email: EmailStr
     full_name: str = Field(..., min_length=3, max_length=100)
-    password: SecretStr | None = Field(None, min_length=8)  # Optional for OAuth users
-    google_id: str | None = None  # Google OAuth ID
-    oauth_provider: str | None = None  # "google", "password", or None for legacy users
+    supabase_id: str | None = None  # Supabase auth user ID
     avatar_url: str | None = None  # Profile picture URL from OAuth provider
-    is_email_verified: bool = True  # OAuth users have verified emails
+    is_email_verified: bool = True  # Supabase users have verified emails
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -29,9 +27,9 @@ class UserBase(BaseModel):
 
     @pydantic.model_validator(mode="after")
     def validate_auth_method(self):
-        """Ensure user has either password or OAuth provider."""
-        if not self.password and not self.google_id:
-            raise ValueError("User must have either password or OAuth provider")
+        """Ensure user has Supabase ID (required for all authenticated users)."""
+        if not self.supabase_id:
+            raise ValueError("User must have Supabase ID")
         return self
 
     def to_dynamodb_item(self) -> UserItem:
@@ -47,13 +45,13 @@ class UserBase(BaseModel):
             SK="USER#INFO",
             email=self.email,
             full_name=self.full_name,
-            password=self.password.get_secret_value() if self.password else None,
-            google_id=self.google_id,
-            oauth_provider=self.oauth_provider,
+            supabase_id=self.supabase_id,
             avatar_url=self.avatar_url,
             is_email_verified=self.is_email_verified,
             created_at=created,
             updated_at=updated,
+            GSI1PK=self.supabase_id,
+            GSI1SK=self.supabase_id,
         )
 
     @classmethod
@@ -65,16 +63,11 @@ class UserBase(BaseModel):
         # Extract the username from PK format "USER#{username}"
         username = item.get("PK", "").replace("USER#", "") if "PK" in item else ""
 
-        # Handle optional password for OAuth users
-        password = item.get("password")
-
         return cls(
             username=username,
             email=item.get("email", ""),
             full_name=item.get("full_name", ""),
-            password=password if password else None,
-            google_id=item.get("google_id"),
-            oauth_provider=item.get("oauth_provider"),
+            supabase_id=item.get("supabase_id"),
             avatar_url=item.get("avatar_url"),
             is_email_verified=item.get("is_email_verified", True),
             created_at=(

@@ -56,6 +56,8 @@ dynamodb_table = aws.dynamodb.Table(
     attributes=[
         {"name": "PK", "type": "S"},
         {"name": "SK", "type": "S"},
+        {"name": "GSI1PK", "type": "S"},
+        {"name": "GSI1SK", "type": "S"},
     ],
     hash_key="PK",
     range_key="SK",
@@ -65,7 +67,13 @@ dynamodb_table = aws.dynamodb.Table(
             "hash_key": "SK",
             "range_key": "PK",
             "projection_type": "ALL",
-        }
+        },
+        {
+            "name": "GSI1",
+            "hash_key": "GSI1PK",
+            "range_key": "GSI1SK",
+            "projection_type": "ALL",
+        },
     ],
 )
 
@@ -92,62 +100,13 @@ dynamodb_policy = dynamodb_table.arn.apply(
     )
 )
 
-# Use existing AWS Secrets Manager Secret for JWT
-# The secret "authSecrets" already exists and is managed externally
-secrets_policy = pulumi.Output.concat(
-    "arn:aws:secretsmanager:",
-    current_region.name,
-    ":",
-    current.account_id,
-    ":secret:authSecrets-*",
-).apply(
-    lambda arn: json.dumps(
-        {
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Effect": "Allow",
-                    "Action": [
-                        "secretsmanager:GetSecretValue",
-                        "secretsmanager:DescribeSecret",
-                    ],
-                    "Resource": arn,
-                }
-            ],
-        }
-    )
-)
-
-# IAM policy for Parameter Store access
-parameter_store_policy = pulumi.Output.concat(
-    "arn:aws:ssm:",
-    current_region.name,
-    ":",
-    current.account_id,
-    ":parameter/debt-management/*",
-).apply(
-    lambda arn: json.dumps(
-        {
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Effect": "Allow",
-                    "Action": [
-                        "ssm:GetParameter",
-                        "ssm:GetParameters",
-                        "ssm:GetParametersByPath",
-                    ],
-                    "Resource": arn,
-                }
-            ],
-        }
-    )
-)
-
 # Environment variables for Lambda functions
 lambda_env_vars = {
     "TABLE_NAME": dynamodb_table.name,
-    # JWT_SECRET removed - using AWS Secrets Manager for security
+    # Supabase configuration from environment variables (more secure)
+    "SUPABASE_URL": os.environ.get("SUPABASE_URL", ""),
+    "SUPABASE_JWT_SECRET": os.environ.get("SUPABASE_JWT_SECRET", ""),
+    "SUPABASE_ANON_KEY": os.environ.get("SUPABASE_ANON_KEY", ""),
 }
 
 # Lambda Function Definitions
@@ -156,25 +115,13 @@ lambda_functions = {
         "handler": "main.healthz",
         "protected": False,  # No auth required
     },
-    "login": {
-        "handler": "handlers.auth.login",
-        "protected": False,  # No auth required for login
-    },
-    "google-auth-url": {
-        "handler": "handlers.auth.google_auth_url",
-        "protected": False,  # No auth required to get OAuth URL
-    },
-    "google-oauth-callback": {
-        "handler": "handlers.auth.google_oauth_callback",
-        "protected": False,  # No auth required for OAuth callback
-    },
-    "create-user": {
-        "handler": "handlers.users.create_user",
-        "protected": False,  # No auth required for user registration
+    "sync-user": {
+        "handler": "handlers.auth.sync_user_handler",
+        "protected": False,  # Supabase handles auth validation internally
     },
     "get-user": {
         "handler": "handlers.users.get_user",
-        "protected": True,
+        "protected": True,  # User data should be protected
     },
     "create-debt": {
         "handler": "handlers.debts.create_debt",
@@ -201,12 +148,27 @@ lambda_functions = {
 # Create Lambda functions
 functions = {}
 for name, config in lambda_functions.items():
+    # Determine which policies each function needs
+    policies = []
+
+    # Functions that need DynamoDB access
+    if name in [
+        "sync-user",
+        "get-user",
+        "create-debt",
+        "get-debt",
+        "list-debts",
+        "update-debt",
+        "delete-debt",
+    ]:
+        policies.append(dynamodb_policy)
+
     functions[name] = DockerLambdaFunction(
         f"debt-management-{name}",
         handler=config["handler"],
         shared_image_uri=image_uri,
         environment_vars=lambda_env_vars,
-        additional_policies=[dynamodb_policy, secrets_policy, parameter_store_policy],
+        additional_policies=policies,
     )
 
 # Create the authorizer function
@@ -215,7 +177,9 @@ authorizer_function = DockerLambdaFunction(
     handler="authorizer.lambda_handler",
     shared_image_uri=image_uri,
     environment_vars=lambda_env_vars,
-    additional_policies=[dynamodb_policy, secrets_policy, parameter_store_policy],
+    additional_policies=[
+        dynamodb_policy
+    ],  # Only needs DynamoDB to check user existence
 )
 
 # API Gateway HTTP API
@@ -272,27 +236,14 @@ stage = aws.apigatewayv2.Stage(
 # Route Definitions
 routes = [
     {"method": "GET", "path": "/healthz", "function": "healthz", "protected": False},
-    {"method": "POST", "path": "/login", "function": "login", "protected": False},
-    {
-        "method": "GET",
-        "path": "/auth/google/url",
-        "function": "google-auth-url",
-        "protected": False,
-    },
     {
         "method": "POST",
-        "path": "/auth/google/callback",
-        "function": "google-oauth-callback",
+        "path": "/auth/sync",
+        "function": "sync-user",
         "protected": False,
     },
-    {"method": "POST", "path": "/users", "function": "create-user", "protected": False},
-    {
-        "method": "GET",
-        "path": "/users/{username}",
-        "function": "get-user",
-        "protected": True,
-    },
-    # New REST API design for debts - flat structure with UUID identification
+    {"method": "GET", "path": "/user", "function": "get-user", "protected": True},
+    # REST API design for debts - flat structure with UUID identification
     {
         "method": "POST",
         "path": "/debts",

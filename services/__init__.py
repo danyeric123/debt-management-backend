@@ -6,15 +6,9 @@ external API integrations, and business logic.
 """
 
 from .dynamodb import DebtManagementTable
-from .google_oauth import GoogleOAuthService
-from .parameter_store import config, get_parameter
-from .secrets import get_all_secret_versions, get_secret
+from .supabase_auth import supabase_auth
 
 __all__ = [
     "DebtManagementTable",
-    "GoogleOAuthService",
-    "get_secret",
-    "get_all_secret_versions",
-    "config",
-    "get_parameter",
+    "supabase_auth",
 ]

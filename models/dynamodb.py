@@ -19,13 +19,13 @@ class UserItem(DynamoDBItem):
     SK: str = "USER#INFO"
     email: str
     full_name: str
-    password: str | None = None  # Stored as hashed value, optional for OAuth users
-    google_id: str | None = None  # Google OAuth ID
-    oauth_provider: str | None = None  # "google", "password", or None for legacy users
+    supabase_id: str | None = None  # Supabase auth user ID
     avatar_url: str | None = None  # Profile picture URL from OAuth provider
-    is_email_verified: bool = True  # OAuth users have verified emails
+    is_email_verified: bool = True  # Supabase users have verified emails
     created_at: str
     updated_at: str
+    GSI1PK: str | None = None  # supabase_id
+    GSI1SK: str | None = None  # supabase_id
 
 
 class DebtItem(DynamoDBItem):

@@ -59,6 +59,9 @@ class DebtBase(BaseModel):
             current_balance=str(self.current_balance) if self.current_balance else None,
             created_at=created,
             updated_at=updated,
+            # Populate GSI fields for potential future use (e.g., querying debts by creditor)
+            GSI1PK=f"CREDITOR#{self.creditor}" if self.creditor else None,
+            GSI1SK=f"USER#{self.username}#DEBT#{self.debt_id}",
         )
 
     @classmethod
